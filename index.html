@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1369 Minotaur – The Labyrinth</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@700;900&family=Bebas+Neue&display=swap');
+
+:root {
+  --crimson:      #8B0000;
+  --crimson-dark: #3a0000;
+  --gold:         #c8a84b;
+  --gold-light:   #e8c96a;
+  --cream:        #f5ecd7;
+  --black:        #0a0000;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--black);
+  font-family: 'Cinzel', serif;
+  overflow: hidden;
+  width: 100vw; height: 100vh;
+  user-select: none;
+}
+
+.greek-bar {
+  position:fixed; left:0; right:0; height:26px; z-index:200;
+  background: var(--black);
+}
+.greek-bar.top { top:0; }
+.greek-bar.bot { bottom:0; }
+.greek-bar::after {
+  content:''; display:block; width:100%; height:100%;
+  background: repeating-linear-gradient(90deg,
+    transparent 0 2px, var(--gold) 2px 4px,
+    transparent 4px 6px, var(--gold) 6px 8px,
+    transparent 8px 14px,
+    var(--gold) 14px 16px, transparent 16px 18px,
+    var(--gold) 18px 20px, transparent 20px 26px);
+  opacity:.5;
+}
+
+#flash {
+  position:fixed; inset:0; z-index:500; pointer-events:none;
+  background:rgba(200,168,75,.13); opacity:0; transition:opacity .12s;
+}
+#flash.on { opacity:1; }
+
+/* ── INTRO ── */
+#intro {
+  position:fixed; inset:0; z-index:100;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background: radial-gradient(ellipse at 50% 60%, #6d0000 0%, #1a0000 75%);
+  transition: opacity .9s, transform .9s;
+}
+#intro.out { opacity:0; pointer-events:none; transform:scale(1.04); }
+.intro-label {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(.8rem,1.4vw,.95rem);
+  color:var(--gold); letter-spacing:.35em; opacity:.7; margin-bottom:.8rem;
+}
+.intro-h1 {
+  font-family:'Cinzel Decorative',serif; font-weight:900;
+  font-size:clamp(3.5rem,9vw,7.5rem); line-height:.95;
+  color:var(--gold); text-align:center;
+  text-shadow: 0 0 50px rgba(200,168,75,.5), 5px 5px 0 var(--black);
+}
+.intro-sub {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(1.1rem,2.5vw,1.9rem);
+  color:var(--cream); letter-spacing:.35em; margin:1.2rem 0 3rem; opacity:.8;
+}
+.intro-btn {
+  background:none; border:2px solid var(--gold);
+  color:var(--gold); font-family:'Bebas Neue',sans-serif;
+  font-size:1.5rem; letter-spacing:.3em; padding:1rem 3.5rem;
+  cursor:pointer; transition:all .3s; position:relative; overflow:hidden;
+}
+.intro-btn::before {
+  content:''; position:absolute; inset:0; background:var(--gold);
+  transform:scaleX(0); transform-origin:left; transition:transform .3s; z-index:-1;
+}
+.intro-btn:hover { color:var(--black); }
+.intro-btn:hover::before { transform:scaleX(1); }
+.deco-ring { position:absolute; opacity:.1; pointer-events:none; }
+
+/* ── GAME LAYOUT ── */
+#game {
+  position:fixed; inset:0;
+  display:grid;
+  grid-template-columns: 48% 52%;
+  padding: 26px 0;
+  opacity:0; pointer-events:none; transition:opacity .8s;
+}
+#game.on { opacity:1; pointer-events:all; }
+
+/* LEFT */
+#fp-side {
+  display:flex; flex-direction:column;
+  padding: 10px 6px 10px 10px; gap:8px;
+}
+
+#minimap-row {
+  display:flex; align-items:center; gap:10px; flex-shrink:0;
+}
+#minimap { width:80px; height:80px; border:1px solid rgba(200,168,75,.35); flex-shrink:0; }
+.hud-right { flex:1; display:flex; flex-direction:column; gap:5px; }
+.hud-team {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(.9rem,1.8vw,1.3rem);
+  color:var(--gold); letter-spacing:.22em;
+}
+.pdots { display:flex; gap:5px; flex-wrap:wrap; }
+.pdot {
+  width:8px; height:8px; border-radius:50%;
+  border:1.5px solid var(--gold); background:transparent;
+  transition:background .3s, transform .3s;
+}
+.pdot.done { background:var(--gold); }
+.pdot.cur  { background:var(--gold-light); box-shadow:0 0 7px var(--gold); transform:scale(1.3); }
+
+/* ── ICON STRIP ── */
+#icon-strip {
+  display:flex; align-items:stretch; gap:6px; flex-shrink:0;
+}
+.icon-tile {
+  flex:1;
+  background: linear-gradient(160deg, #2a0000, #150000);
+  border:1px solid rgba(200,168,75,.28);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:5px; padding:8px 4px;
+  position:relative; overflow:hidden;
+  transition: border-color .3s, background .3s;
+}
+.icon-tile::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at 50% 0%, rgba(200,168,75,.07), transparent 70%);
+}
+.icon-tile.active {
+  border-color:rgba(200,168,75,.7);
+  background:linear-gradient(160deg, #3d0000, #1c0000);
+  box-shadow: 0 0 14px rgba(200,168,75,.18), inset 0 0 12px rgba(200,168,75,.06);
+}
+.icon-tile svg {
+  width:clamp(22px,3vw,32px); height:clamp(22px,3vw,32px);
+  fill:none; stroke:rgba(200,168,75,.45); stroke-width:1.5;
+  stroke-linecap:round; stroke-linejoin:round;
+  transition:stroke .3s;
+}
+.icon-tile.active svg { stroke:var(--gold-light); filter:drop-shadow(0 0 4px rgba(200,168,75,.5)); }
+.icon-label {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(.5rem,.75vw,.65rem); letter-spacing:.18em;
+  color:rgba(200,168,75,.4); text-align:center; line-height:1;
+  transition:color .3s;
+}
+.icon-tile.active .icon-label { color:rgba(200,168,75,.8); }
+
+#fp-wrap {
+  flex:1; position:relative; min-height:0;
+  border:2px solid rgba(200,168,75,.3);
+  box-shadow: inset 0 0 50px rgba(0,0,0,.9), 0 0 30px rgba(0,0,0,.9);
+  overflow:hidden;
+}
+#fp { display:block; width:100%; height:100%; }
+#fp-wrap::after {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(0,0,0,.7) 100%);
+}
+.fp-torch {
+  position:absolute; width:70px; height:70px; pointer-events:none; border-radius:50%;
+  animation:tflicker .22s ease-in-out infinite alternate;
+}
+.fp-torch.tl { top:0; left:0;
+  background:radial-gradient(circle at 0% 0%, rgba(255,120,0,.4), transparent 70%); }
+.fp-torch.tr { top:0; right:0;
+  background:radial-gradient(circle at 100% 0%, rgba(255,120,0,.4), transparent 70%); }
+@keyframes tflicker {
+  from { opacity:.9; }
+  to   { opacity:.65; }
+}
+
+.fp-nav {
+  position:absolute; bottom:16px;
+  width:56px; height:56px; z-index:10;
+  background:rgba(10,0,0,.7);
+  border:1.5px solid rgba(200,168,75,.5);
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  clip-path:polygon(8% 0,92% 0,100% 8%,100% 92%,92% 100%,8% 100%,0 92%,0 8%);
+  transition:all .2s;
+}
+.fp-nav:hover { background:rgba(200,168,75,.25); border-color:var(--gold); }
+.fp-nav:active { transform:scale(.92); }
+.fp-nav svg { width:24px; height:24px; stroke:var(--gold); fill:none; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+.fp-nav.prev { left:16px; }
+.fp-nav.next { right:16px; }
+
+/* RIGHT – checkpoint card */
+#cp-side {
+  display:flex; flex-direction:column;
+  padding: 10px 10px 10px 6px;
+}
+
+.cp-card {
+  flex:1;
+  background: linear-gradient(155deg, #3d0000 0%, #1c0000 55%, #0d0000 100%);
+  border:1px solid rgba(200,168,75,.4);
+  position:relative; overflow:hidden;
+  display:flex; flex-direction:column;
+  padding: clamp(20px,3vw,38px) clamp(22px,3.5vw,44px) clamp(18px,2.5vw,30px);
+}
+.cp-card::before, .cp-card::after {
+  content:''; position:absolute; width:32px; height:32px;
+  border-color:var(--gold); border-style:solid; opacity:.45;
+}
+.cp-card::before { top:12px; left:12px; border-width:2px 0 0 2px; }
+.cp-card::after  { bottom:12px; right:12px; border-width:0 2px 2px 0; }
+
+/* inner decorative line */
+.cp-card-bg {
+  position:absolute; inset:0; pointer-events:none; overflow:hidden;
+}
+.cp-card-bg::before {
+  content:''; position:absolute;
+  right:-60px; top:-60px;
+  width:220px; height:220px; border-radius:50%;
+  background:radial-gradient(circle, rgba(200,168,75,.04) 0%, transparent 70%);
+}
+
+.cp-accent-bar {
+  width:60px; height:3px;
+  background:linear-gradient(90deg, var(--gold), transparent);
+  margin-bottom:clamp(12px,2vw,22px);
+}
+.cp-eyebrow {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(.7rem,1.1vw,.85rem); letter-spacing:.5em;
+  color:var(--gold); opacity:.55; margin-bottom:clamp(4px,1vw,8px);
+}
+.cp-title {
+  font-family:'Cinzel Decorative',serif; font-weight:900;
+  font-size:clamp(1.6rem,3.8vw,3.2rem);
+  color:#fff; line-height:1.0;
+  margin-bottom:clamp(12px,2vw,20px);
+  text-shadow:0 2px 24px rgba(200,168,75,.2);
+}
+.cp-divider {
+  width:100%; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(200,168,75,.3),transparent);
+  margin-bottom:clamp(10px,1.8vw,18px);
+}
+.cp-desc {
+  font-family:'Cinzel',serif;
+  font-size:clamp(.88rem,1.55vw,1.15rem);
+  color:var(--cream); opacity:.88; line-height:1.75;
+  flex:1;
+}
+.cp-stats {
+  display:flex; flex-wrap:wrap; gap:10px; margin-top:clamp(14px,2vw,24px);
+}
+.cp-stat {
+  background:rgba(200,168,75,.1);
+  border:1px solid rgba(200,168,75,.35);
+  color:var(--gold-light);
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(.78rem,1.2vw,.95rem); letter-spacing:.18em;
+  padding:5px 14px;
+}
+.cp-footer {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:clamp(10px,1.5vw,18px);
+  padding-top:clamp(8px,1.2vw,14px);
+  border-top:1px solid rgba(200,168,75,.15);
+}
+.cp-slide-label, .cp-counter {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(.72rem,.95vw,.88rem); letter-spacing:.25em;
+  color:var(--gold); opacity:.45;
+}
+
+/* ── VICTORY ── */
+#victory {
+  position:fixed; inset:0; z-index:300;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at 50% 50%, #6d0000 0%, #0d0000 80%);
+  opacity:0; pointer-events:none; transition:opacity 1s;
+}
+#victory.on { opacity:1; pointer-events:all; }
+.v-title {
+  font-family:'Cinzel Decorative',serif; font-weight:900;
+  font-size:clamp(3rem,8vw,7rem); line-height:.95; text-align:center;
+  color:var(--gold);
+  text-shadow:0 0 80px rgba(200,168,75,.9), 6px 6px 0 var(--black);
+  animation:vPulse 2s ease-in-out infinite;
+}
+@keyframes vPulse {
+  0%,100% { text-shadow:0 0 50px rgba(200,168,75,.7), 6px 6px 0 var(--black); }
+  50%      { text-shadow:0 0 100px rgba(200,168,75,1),0 0 150px rgba(200,168,75,.4), 6px 6px 0 var(--black); }
+}
+.v-sub {
+  font-family:'Bebas Neue',sans-serif; font-size:clamp(1rem,2.5vw,1.6rem);
+  color:var(--cream); letter-spacing:.4em; margin-top:1rem; opacity:.8;
+}
+.v-restart {
+  background:none; border:2px solid var(--gold); color:var(--gold);
+  font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:.3em;
+  padding:.8rem 2.5rem; cursor:pointer; margin-top:2.5rem; transition:all .3s;
+}
+.v-restart:hover { background:var(--gold); color:var(--black); }
+.confetti { position:absolute; width:8px; height:8px; border-radius:2px; animation:fall linear forwards; }
+@keyframes fall {
+  0%   { transform:translateY(-30px) rotate(0deg); opacity:1; }
+  100% { transform:translateY(110vh) rotate(720deg); opacity:0; }
+}
+</style>
+</head>
+<body>
+
+<div class="greek-bar top"></div>
+<div class="greek-bar bot"></div>
+<div id="flash"></div>
+
+<!-- INTRO -->
+<div id="intro">
+  <svg class="deco-ring" style="left:2vw;top:50%;transform:translateY(-50%);width:min(240px,26vw)" viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="92" fill="none" stroke="#c8a84b" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="72" fill="none" stroke="#c8a84b" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="52" fill="none" stroke="#c8a84b" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="32" fill="none" stroke="#c8a84b" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="14" fill="none" stroke="#c8a84b" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="5"  fill="#c8a84b" opacity=".6"/>
+    <line x1="100" y1="8"   x2="100" y2="86"  stroke="#c8a84b" stroke-width="1.5"/>
+    <line x1="100" y1="114" x2="100" y2="192" stroke="#c8a84b" stroke-width="1.5"/>
+    <line x1="140" y1="36"  x2="116" y2="84"  stroke="#c8a84b" stroke-width="1.5"/>
+    <line x1="60"  y1="164" x2="84"  y2="116" stroke="#c8a84b" stroke-width="1.5"/>
+  </svg>
+  <div class="intro-label">MIDDLETON HIGH SCHOOL · TAMPA, FLORIDA</div>
+  <div class="intro-h1">1369<br>MINOTAUR</div>
+  <div class="intro-sub">Navigate the Labyrinth</div>
+  <button class="intro-btn" onclick="startGame()">ENTER THE MAZE</button>
+</div>
+
+<!-- GAME -->
+<div id="game">
+  <!-- LEFT: FP view -->
+  <div id="fp-side">
+    <div id="minimap-row">
+      <canvas id="minimap" width="80" height="80"></canvas>
+      <div class="hud-right">
+        <div class="hud-team">1369 MINOTAUR</div>
+        <div class="pdots" id="pdots"></div>
+      </div>
+    </div>
+    <!-- ICON STRIP -->
+    <div id="icon-strip">
+
+      <!-- Labyrinth / Maze -->
+      <div class="icon-tile active" id="icon-0">
+        <svg viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="13" stroke-width="1.4"/>
+          <circle cx="16" cy="16" r="9"  stroke-width="1.4"/>
+          <circle cx="16" cy="16" r="5"  stroke-width="1.4"/>
+          <circle cx="16" cy="16" r="2"  fill="currentColor" stroke="none"/>
+          <line x1="16" y1="3"  x2="16" y2="11"/>
+          <line x1="29" y1="16" x2="21" y2="16"/>
+          <line x1="16" y1="29" x2="16" y2="25"/>
+        </svg>
+        <div class="icon-label">LABYRINTH</div>
+      </div>
+
+      <!-- Bull / Minotaur head -->
+      <div class="icon-tile" id="icon-1">
+        <svg viewBox="0 0 32 32">
+          <!-- horns -->
+          <path d="M9 10 C5 7 3 4 5 2 C7 4 8 7 10 9"/>
+          <path d="M23 10 C27 7 29 4 27 2 C25 4 24 7 22 9"/>
+          <!-- head -->
+          <ellipse cx="16" cy="16" rx="8" ry="9" stroke-width="1.5"/>
+          <!-- eyes -->
+          <circle cx="13" cy="14" r="1.2" fill="currentColor" stroke="none"/>
+          <circle cx="19" cy="14" r="1.2" fill="currentColor" stroke="none"/>
+          <!-- nose ring -->
+          <path d="M13 20 Q16 22 19 20" stroke-width="1.2"/>
+          <circle cx="16" cy="20" r="1" stroke-width="1.2"/>
+        </svg>
+        <div class="icon-label">MINOTAUR</div>
+      </div>
+
+      <!-- Torch -->
+      <div class="icon-tile" id="icon-2">
+        <svg viewBox="0 0 32 32">
+          <!-- handle -->
+          <rect x="14.5" y="16" width="3" height="12" rx="1.2"/>
+          <!-- wrap lines -->
+          <line x1="14.5" y1="19" x2="17.5" y2="19" stroke-width=".8"/>
+          <line x1="14.5" y1="22" x2="17.5" y2="22" stroke-width=".8"/>
+          <line x1="14.5" y1="25" x2="17.5" y2="25" stroke-width=".8"/>
+          <!-- flame base -->
+          <path d="M12 16 Q11 12 16 10 Q21 12 20 16 Z" stroke-width="1.3"/>
+          <!-- inner flame -->
+          <path d="M14 15 Q13.5 12.5 16 11.5 Q18.5 12.5 18 15 Z" stroke-width="1" stroke-dasharray="1 1"/>
+          <!-- flame tip -->
+          <path d="M16 10 Q15 7 16 5 Q17 7 16 10" stroke-width="1.2"/>
+        </svg>
+        <div class="icon-label">TORCH</div>
+      </div>
+
+      <!-- Gear / Engineering -->
+      <div class="icon-tile" id="icon-3">
+        <svg viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="4.5"/>
+          <path d="M16 5 L17.5 8 L14.5 8 Z"/>
+          <path d="M16 27 L17.5 24 L14.5 24 Z"/>
+          <path d="M5 16 L8 14.5 L8 17.5 Z"/>
+          <path d="M27 16 L24 14.5 L24 17.5 Z"/>
+          <path d="M8.5 8.5 L10.5 11 L8 11 Z"/>
+          <path d="M23.5 23.5 L21.5 21 L24 21 Z"/>
+          <path d="M8.5 23.5 L11 21.5 L11 24 Z"/>
+          <path d="M23.5 8.5 L21 10.5 L21 8 Z"/>
+          <circle cx="16" cy="16" r="8.5" stroke-dasharray="2 1.2"/>
+        </svg>
+        <div class="icon-label">ENGINEER</div>
+      </div>
+
+      <!-- Shield / FIRST -->
+      <div class="icon-tile" id="icon-4">
+        <svg viewBox="0 0 32 32">
+          <path d="M16 3 L28 7 L28 17 Q28 25 16 30 Q4 25 4 17 L4 7 Z" stroke-width="1.5"/>
+          <!-- inner shield line -->
+          <path d="M16 6 L25 9.5 L25 17 Q25 23 16 27 Q7 23 7 17 L7 9.5 Z" stroke-width=".8" stroke-dasharray="1.5 1"/>
+          <!-- F letter for FIRST -->
+          <line x1="13" y1="12" x2="13" y2="21" stroke-width="1.8"/>
+          <line x1="13" y1="12" x2="19" y2="12" stroke-width="1.8"/>
+          <line x1="13" y1="16.5" x2="18" y2="16.5" stroke-width="1.8"/>
+        </svg>
+        <div class="icon-label">FIRST</div>
+      </div>
+
+      <!-- Star / Achievement -->
+      <div class="icon-tile" id="icon-5">
+        <svg viewBox="0 0 32 32">
+          <polygon points="16,3 19.5,12 29,12 21.5,17.5 24,27 16,21.5 8,27 10.5,17.5 3,12 12.5,12" stroke-width="1.4"/>
+          <!-- inner star glow ring -->
+          <circle cx="16" cy="16" r="5" stroke-width=".7" stroke-dasharray="1 1.5"/>
+        </svg>
+        <div class="icon-label">ACHIEVE</div>
+      </div>
+
+      <!-- Laurel / Victory -->
+      <div class="icon-tile" id="icon-6">
+        <svg viewBox="0 0 32 32">
+          <!-- left branch -->
+          <path d="M16 26 Q10 22 8 18 Q7 14 9 11 Q11 14 10 18 Q12 16 11 12 Q14 15 12 19 Q14 17 14 14 Q16 17 15 21 Q16 19 16 16"/>
+          <!-- right branch -->
+          <path d="M16 26 Q22 22 24 18 Q25 14 23 11 Q21 14 22 18 Q20 16 21 12 Q18 15 20 19 Q18 17 18 14 Q16 17 17 21 Q16 19 16 16"/>
+          <!-- stem -->
+          <line x1="16" y1="16" x2="16" y2="28" stroke-width="1.2"/>
+          <!-- tie -->
+          <path d="M13 27 Q16 25 19 27" stroke-width="1.3"/>
+        </svg>
+        <div class="icon-label">VICTORY</div>
+      </div>
+
+    </div>
+
+    <div id="fp-wrap">
+      <canvas id="fp"></canvas>
+      <div class="fp-torch tl"></div>
+      <div class="fp-torch tr"></div>
+      <button class="fp-nav prev" id="prevBtn" onclick="go(-1)" style="display:none">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="fp-nav next" id="nextBtn" onclick="go(1)">
+        <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT: checkpoint card -->
+  <div id="cp-side">
+    <div class="cp-card">
+      <div class="cp-card-bg"></div>
+      <div class="cp-accent-bar"></div>
+      <div class="cp-eyebrow"  id="cpEye">CHECKPOINT 01</div>
+      <div class="cp-title"    id="cpTitle">The Labyrinth Begins</div>
+      <div class="cp-divider"></div>
+      <div class="cp-desc"     id="cpDesc">Every journey starts here.</div>
+      <div class="cp-stats"    id="cpStats"></div>
+      <div class="cp-footer">
+        <div class="cp-slide-label" id="cpSlide">SLIDE 2</div>
+        <div class="cp-counter"     id="cpCount">1 / 14</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VICTORY -->
+<div id="victory">
+  <div class="v-title">WE BEAT<br>THE MAZE</div>
+  <div class="v-sub">1369 Minotaur · Middleton Robotics</div>
+  <button class="v-restart" onclick="restart()">RETURN TO START</button>
+</div>
+
+<script>
+/* ── CHECKPOINTS ── */
+const CPS = [
+  { title:"The Labyrinth", slide:"SLIDE 2",
+    desc:"Every great journey begins at the center of the maze. We are Team 1369 Minotaur, and today we navigate our story through the labyrinth of achievement.",
+    stats:[] },
+  { title:"Who Are We", slide:"SLIDE 4",
+    desc:"We are 1369 Minotaur from Middleton High School in Tampa, Florida — a FIRST Robotics team built on passion, precision, and purpose.",
+    stats:["TAMPA, FL","MIDDLETON HS"] },
+  { title:"Student Leadership", slide:"SLIDE 5",
+    desc:"Led by President Shivin and COO Dakshesh, our team runs like a well-engineered machine. Eight sub-teams, seventeen leaders — every role matters.",
+    stats:["8 SUB-TEAMS","17 LEADERS"] },
+  { title:"Primary Outreach", slide:"SLIDE 6",
+    desc:"We bring robotics to elementary schools across Tampa, sparking curiosity in the next generation of engineers through hands-on lessons and live robot demos.",
+    stats:["5+ SCHOOLS","500+ STUDENTS","10+ LESSONS"] },
+  { title:"Secondary Outreach", slide:"SLIDE 7",
+    desc:"Expanding into middle and high schools, we show students that STEM is accessible, exciting, and full of opportunity at every age.",
+    stats:["5+ MIDDLE SCHOOLS","6+ HIGH SCHOOLS"] },
+  { title:"Exceptional Education", slide:"SLIDE 8",
+    desc:"Robotics knows no boundaries. We deliver specialized lessons to students in exceptional education programs, making STEM inclusive and empowering for all.",
+    stats:["3+ LESSONS","30+ STUDENTS"] },
+  { title:"Post-Secondary", slide:"SLIDE 9",
+    desc:"Our outreach goes beyond K-12. We partner with accredited universities to bridge the gap between high school robotics and higher education.",
+    stats:["2+ UNIVERSITIES"] },
+  { title:"City Leadership", slide:"SLIDE 10",
+    desc:"We lead Tampa's robotics community through off-season events, donating equipment and empowering educators and students across the entire city.",
+    stats:["7+ EVENTS","500+ STUDENTS","30+ DONATIONS","20+ EDUCATORS"] },
+  { title:"Summer Camp", slide:"SLIDE 11",
+    desc:"Every summer we host our Annual Robotics Summer Camp — a fully scholarship-supported program opening doors for students who might otherwise never experience robotics.",
+    stats:["145+ SCHOLARSHIPS","450+ STUDENTS","$45,000 IMPACT"] },
+  { title:"FIRST Involvement", slide:"SLIDE 12",
+    desc:"From FTC Support to FRC Kickoff to FLL Promotion, we are deeply embedded in the FIRST ecosystem — supporting every level of the competition ladder.",
+    stats:["FTC SUPPORT","FRC KICKOFF","FLL PROMOTION"] },
+  { title:"VEX Involvement", slide:"SLIDE 13",
+    desc:"Beyond FRC, we organize and host VEX Robotics regional events, raising over ten thousand dollars and growing the local robotics ecosystem.",
+    stats:["4 REGIONAL EVENTS","120+ STUDENTS","$10,000+ RAISED"] },
+  { title:"Black Heritage", slide:"SLIDE 14",
+    desc:"Through the Black Heritage Jack-and-Jill partnership, we deliver lessons celebrating diversity and ensuring every community sees itself in STEM.",
+    stats:["350+ ATTENDEES","9+ LESSONS"] },
+  { title:"Project AMS", slide:"SLIDE 15",
+    desc:"Project AMS is our signature mentorship initiative — investing 150+ hours supporting FRC teams across the region with strategy, builds, and coaching.",
+    stats:["150+ HOURS","300+ STUDENTS","5+ FRC TEAMS"] },
+  { title:"Community Impact", slide:"SLIDE 16",
+    desc:"From hurricane disaster relief to building robotics curricula to presenting at TEDx, 1369 Minotaur shows up for the Tampa community in every possible way.",
+    stats:["DISASTER RELIEF","CURRICULA","TEDX"] },
+];
+
+/* ── MAZE MAP (0=open 1=wall) 16x12 ── */
+const COLS=16, ROWS=12;
+const MAP=[
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1],
+  [1,0,1,0,1,0,1,1,1,1,0,1,0,1,0,1],
+  [1,0,1,0,0,0,0,0,0,1,0,0,0,1,0,1],
+  [1,0,1,1,1,1,1,0,1,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1],
+  [1,1,1,0,1,0,1,0,1,0,1,1,1,1,0,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
+  [1,0,1,1,1,1,1,0,1,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+  [1,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+/* waypoints: [col, row, angleDeg] */
+const WPS=[
+  [1,1,  0],[3,1,  0],[5,1,  0],[7,1, 90],
+  [7,3, 90],[5,3,180],[3,3,180],[1,3, 90],
+  [1,5, 90],[3,5,  0],[5,5,  0],[7,5, 90],
+  [7,7, 90],[5,7,180],
+];
+
+/* ── STATE ── */
+let cur=0, moving=false;
+let px,py,pa, tx,ty,ta;
+let raf=null, lastT=0;
+const LERP=0.072;
+const FOV=Math.PI/2.8;
+
+function wpWorld(wp){ return {x:wp[0]+.5,y:wp[1]+.5,a:wp[2]*Math.PI/180}; }
+
+/* ── START ── */
+function startGame(){
+  document.getElementById('intro').classList.add('out');
+  document.getElementById('game').classList.add('on');
+  buildDots();
+  const w=wpWorld(WPS[0]);
+  px=tx=w.x; py=ty=w.y; pa=ta=w.a;
+  updateCard(0);
+  raf=requestAnimationFrame(loop);
+}
+
+function buildDots(){
+  const el=document.getElementById('pdots');
+  el.innerHTML='';
+  CPS.forEach((_,i)=>{
+    const d=document.createElement('div');
+    d.className='pdot'+(i===0?' cur':'');
+    d.id='pd'+i;
+    el.appendChild(d);
+  });
+}
+
+/* ── NAVIGATE ── */
+function go(dir){
+  if(moving) return;
+  const n=cur+dir;
+  if(n<0) return;
+  if(n>=CPS.length){ showVictory(); return; }
+  moving=true; cur=n;
+  const w=wpWorld(WPS[Math.min(cur,WPS.length-1)]);
+  tx=w.x; ty=w.y;
+  let da=w.a-pa;
+  while(da>Math.PI)  da-=Math.PI*2;
+  while(da<-Math.PI) da+=Math.PI*2;
+  ta=pa+da;
+  updateCard(cur);
+  doFlash();
+  setTimeout(()=>moving=false,900);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='Enter') go(1);
+  if(e.key==='ArrowLeft') go(-1);
+});
+
+/* ── CARD ── */
+function updateCard(i){
+  const cp=CPS[i];
+  document.getElementById('cpEye').textContent   ='CHECKPOINT '+String(i+1).padStart(2,'0');
+  document.getElementById('cpTitle').textContent =cp.title;
+  document.getElementById('cpDesc').textContent  =cp.desc;
+  document.getElementById('cpSlide').textContent =cp.slide;
+  document.getElementById('cpCount').textContent =(i+1)+' / '+CPS.length;
+  const st=document.getElementById('cpStats');
+  st.innerHTML='';
+  cp.stats.forEach(s=>{
+    const b=document.createElement('div');
+    b.className='cp-stat'; b.textContent=s; st.appendChild(b);
+  });
+  CPS.forEach((_,j)=>{
+    const d=document.getElementById('pd'+j); if(!d)return;
+    d.className='pdot';
+    if(j<i) d.classList.add('done');
+    else if(j===i) d.classList.add('cur');
+  });
+  // cycle icon highlight
+  const iconCount=7;
+  for(let k=0;k<iconCount;k++){
+    const el=document.getElementById('icon-'+k);
+    if(el) el.classList.toggle('active', k===(i%iconCount));
+  }
+  document.getElementById('prevBtn').style.display=i>0?'flex':'none';
+}
+
+/* ── LOOP ── */
+function lerp(a,b,t){ return a+(b-a)*t; }
+function loop(ts){
+  raf=requestAnimationFrame(loop);
+  const dt=Math.min((ts-lastT)/16,3); lastT=ts;
+  const k=1-Math.pow(1-LERP,dt);
+  px=lerp(px,tx,k); py=lerp(py,ty,k); pa=lerp(pa,ta,k);
+  renderFP();
+  renderMinimap();
+}
+
+/* ── FIRST-PERSON RENDERER ── */
+function renderFP(){
+  const cv=document.getElementById('fp');
+  const wrap=document.getElementById('fp-wrap');
+  const W=wrap.clientWidth, H=wrap.clientHeight;
+  if(!W||!H) return;
+  if(cv.width!==W) cv.width=W;
+  if(cv.height!==H) cv.height=H;
+  const ctx=cv.getContext('2d');
+
+  // ceiling
+  const cg=ctx.createLinearGradient(0,0,0,H*.5);
+  cg.addColorStop(0,'#060000'); cg.addColorStop(1,'#2d0000');
+  ctx.fillStyle=cg; ctx.fillRect(0,0,W,H*.5);
+
+  // floor
+  const fg=ctx.createLinearGradient(0,H*.5,0,H);
+  fg.addColorStop(0,'#180000'); fg.addColorStop(1,'#060000');
+  ctx.fillStyle=fg; ctx.fillRect(0,H*.5,W,H*.5);
+
+  // subtle floor lines
+  ctx.strokeStyle='rgba(200,168,75,0.035)'; ctx.lineWidth=1;
+  for(let fy=H*.5+10;fy<H;fy+=18){
+    ctx.beginPath(); ctx.moveTo(0,fy); ctx.lineTo(W,fy); ctx.stroke();
+  }
+  // subtle ceiling lines
+  for(let cy2=10;cy2<H*.5-10;cy2+=18){
+    ctx.beginPath(); ctx.moveTo(0,cy2); ctx.lineTo(W,cy2); ctx.stroke();
+  }
+
+  // cast rays
+  for(let col=0;col<W;col++){
+    const ra=pa-FOV*.5+(col/W)*FOV;
+    const {dist,side}=cast(px,py,ra);
+    const cd=Math.max(0.05, dist*Math.cos(ra-pa));
+    const wh=Math.min(H*2, (H/cd)*0.85);
+    const top=(H-wh)*.5;
+
+    let br=Math.max(0,Math.min(1, 1-cd/7));
+    if(side===1) br*=.6;
+
+    // wall color: dark crimson scaled by brightness
+    const rv=Math.round(120*br*0.85+10);
+    const gv=0, bv=0;
+
+    // vertical gradient per slice
+    const wg=ctx.createLinearGradient(col,top,col,top+wh);
+    wg.addColorStop(0,  `rgb(${rv+35},${gv},${bv})`);
+    wg.addColorStop(.12,`rgb(${rv+18},${gv},${bv})`);
+    wg.addColorStop(.5, `rgb(${rv},${gv},${bv})`);
+    wg.addColorStop(.88,`rgb(${rv+18},${gv},${bv})`);
+    wg.addColorStop(1,  `rgb(${rv+35},${gv},${bv})`);
+    ctx.fillStyle=wg;
+    ctx.fillRect(col,top,1,wh);
+
+    // gold mortar cap lines
+    if(br>0.04){
+      const ga=br*.3;
+      ctx.fillStyle=`rgba(200,168,75,${ga})`;
+      ctx.fillRect(col,top,1,2);
+      ctx.fillRect(col,top+wh-2,1,2);
+    }
+  }
+
+  // glow when near target
+  const ddx=tx-px, ddy=ty-py;
+  const dd=Math.sqrt(ddx*ddx+ddy*ddy);
+  if(dd<1.4){
+    const al=Math.max(0,(1.4-dd)/1.4)*.3;
+    const gg=ctx.createRadialGradient(W*.5,H*.5,4,W*.5,H*.5,W*.35);
+    gg.addColorStop(0,`rgba(200,168,75,${al})`);
+    gg.addColorStop(1,'rgba(200,168,75,0)');
+    ctx.fillStyle=gg; ctx.fillRect(0,0,W,H);
+  }
+}
+
+function cast(ox,oy,angle){
+  const dx=Math.cos(angle), dy=Math.sin(angle);
+  let mx=Math.floor(ox), my=Math.floor(oy);
+  const sx=dx>0?1:-1, sy=dy>0?1:-1;
+  const ddx=Math.abs(1/dx), ddy=Math.abs(1/dy);
+  let sdx=dx>0?(mx+1-ox)*ddx:(ox-mx)*ddx;
+  let sdy=dy>0?(my+1-oy)*ddy:(oy-my)*ddy;
+  let side=0;
+  for(let i=0;i<80;i++){
+    if(sdx<sdy){sdx+=ddx;mx+=sx;side=0;}
+    else       {sdy+=ddy;my+=sy;side=1;}
+    if(mx<0||my<0||mx>=COLS||my>=ROWS) return{dist:20,side};
+    if(MAP[my][mx]===1){
+      return{dist:Math.max(.05,side===0?sdx-ddx:sdy-ddy),side};
+    }
+  }
+  return{dist:20,side:0};
+}
+
+/* ── MINIMAP ── */
+function renderMinimap(){
+  const cv=document.getElementById('minimap');
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const cw=W/COLS,ch=H/ROWS;
+  ctx.fillStyle='#080000'; ctx.fillRect(0,0,W,H);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(MAP[r][c]){
+      ctx.fillStyle='rgba(70,0,0,.95)';
+      ctx.fillRect(c*cw+.5,r*ch+.5,cw-1,ch-1);
+    }
+  }
+  // visited
+  for(let i=0;i<cur;i++){
+    const w=WPS[i];
+    ctx.beginPath();
+    ctx.arc((w[0]+.5)*cw,(w[1]+.5)*ch,2,0,Math.PI*2);
+    ctx.fillStyle='rgba(200,168,75,.55)'; ctx.fill();
+  }
+  // FOV cone
+  const ppx=px*cw, ppy=py*ch;
+  ctx.beginPath(); ctx.moveTo(ppx,ppy);
+  ctx.lineTo(ppx+Math.cos(pa-FOV*.5)*16,ppy+Math.sin(pa-FOV*.5)*16);
+  ctx.lineTo(ppx+Math.cos(pa+FOV*.5)*16,ppy+Math.sin(pa+FOV*.5)*16);
+  ctx.closePath();
+  ctx.fillStyle='rgba(200,168,75,.1)'; ctx.fill();
+  // player
+  ctx.shadowColor='#c8a84b'; ctx.shadowBlur=5;
+  ctx.beginPath(); ctx.arc(ppx,ppy,3,0,Math.PI*2);
+  ctx.fillStyle='#e8c96a'; ctx.fill();
+  ctx.shadowBlur=0;
+}
+
+/* ── VICTORY ── */
+function showVictory(){
+  doFlash();
+  setTimeout(()=>{
+    cancelAnimationFrame(raf);
+    document.getElementById('victory').classList.add('on');
+    boom();
+  },400);
+}
+function boom(){
+  const cols=['#c8a84b','#e8c96a','#8B0000','#fff','#ff8800'];
+  const v=document.getElementById('victory');
+  for(let i=0;i<80;i++){
+    setTimeout(()=>{
+      const p=document.createElement('div');
+      p.className='confetti';
+      p.style.cssText=`left:${Math.random()*100}vw;top:-10px;
+        background:${cols[Math.random()*cols.length|0]};
+        animation-duration:${1.5+Math.random()*2.5}s;
+        animation-delay:${Math.random()*.4}s;
+        transform:rotate(${Math.random()*360}deg)`;
+      v.appendChild(p); setTimeout(()=>p.remove(),5000);
+    },i*35);
+  }
+}
+function restart(){
+  cur=0; moving=false;
+  document.getElementById('victory').classList.remove('on');
+  const w=wpWorld(WPS[0]);
+  px=tx=w.x; py=ty=w.y; pa=ta=w.a;
+  updateCard(0);
+  raf=requestAnimationFrame(loop);
+}
+
+function doFlash(){
+  const f=document.getElementById('flash');
+  f.classList.add('on'); setTimeout(()=>f.classList.remove('on'),180);
+}
+
+window.addEventListener('resize',()=>{
+  const c=document.getElementById('fp'); c.width=0; c.height=0;
+});
+</script>
+</body>
+</html>
