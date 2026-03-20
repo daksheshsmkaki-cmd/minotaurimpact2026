@@ -680,24 +680,89 @@ function renderFP(){
   if(cv.height!==H) cv.height=H;
   const ctx=cv.getContext('2d');
 
-  // ceiling
-  const cg=ctx.createLinearGradient(0,0,0,H*.5);
-  cg.addColorStop(0,'#060000'); cg.addColorStop(1,'#2d0000');
-  ctx.fillStyle=cg; ctx.fillRect(0,0,W,H*.5);
+  const horizon = H * 0.5;
 
-  // floor
-  const fg=ctx.createLinearGradient(0,H*.5,0,H);
-  fg.addColorStop(0,'#180000'); fg.addColorStop(1,'#060000');
-  ctx.fillStyle=fg; ctx.fillRect(0,H*.5,W,H*.5);
+  // ── CEILING ──
+  const cg=ctx.createLinearGradient(0,0,0,horizon);
+  cg.addColorStop(0,'#030000'); cg.addColorStop(1,'#250000');
+  ctx.fillStyle=cg; ctx.fillRect(0,0,W,horizon);
 
-  // subtle floor lines
-  ctx.strokeStyle='rgba(200,168,75,0.035)'; ctx.lineWidth=1;
-  for(let fy=H*.5+10;fy<H;fy+=18){
-    ctx.beginPath(); ctx.moveTo(0,fy); ctx.lineTo(W,fy); ctx.stroke();
+  // ceiling stone block lines (perspective)
+  ctx.strokeStyle='rgba(200,168,75,0.045)'; ctx.lineWidth=1;
+  const cRows = 5;
+  for(let r=1;r<=cRows;r++){
+    const y = horizon - (horizon * r/cRows) * 0.85;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
   }
-  // subtle ceiling lines
-  for(let cy2=10;cy2<H*.5-10;cy2+=18){
-    ctx.beginPath(); ctx.moveTo(0,cy2); ctx.lineTo(W,cy2); ctx.stroke();
+  // ceiling vertical joints (converging to center)
+  ctx.strokeStyle='rgba(200,168,75,0.03)';
+  const cJoints = 10;
+  for(let j=0;j<=cJoints;j++){
+    const bx = (j/cJoints)*W;
+    ctx.beginPath(); ctx.moveTo(bx,0);
+    ctx.lineTo(W/2, horizon); ctx.stroke();
+  }
+
+  // ceiling gold meander strip along horizon
+  const mH = 8, mY = horizon - mH - 1;
+  ctx.fillStyle='rgba(10,0,0,0.9)';
+  ctx.fillRect(0, mY, W, mH+2);
+  // draw repeating meander pattern
+  ctx.strokeStyle='rgba(200,168,75,0.45)'; ctx.lineWidth=1.2;
+  const mSize=8;
+  for(let mx2=0;mx2<W;mx2+=mSize*4){
+    ctx.beginPath();
+    // simple key pattern
+    ctx.moveTo(mx2,            mY+mH);
+    ctx.lineTo(mx2,            mY+2);
+    ctx.lineTo(mx2+mSize,      mY+2);
+    ctx.lineTo(mx2+mSize,      mY+mH-2);
+    ctx.lineTo(mx2+mSize*2,    mY+mH-2);
+    ctx.lineTo(mx2+mSize*2,    mY+2);
+    ctx.lineTo(mx2+mSize*3,    mY+2);
+    ctx.lineTo(mx2+mSize*3,    mY+mH);
+    ctx.stroke();
+  }
+
+  // ── FLOOR ──
+  const fg=ctx.createLinearGradient(0,horizon,0,H);
+  fg.addColorStop(0,'#1c0000'); fg.addColorStop(1,'#050000');
+  ctx.fillStyle=fg; ctx.fillRect(0,horizon,W,H-horizon);
+
+  // floor tile grid — perspective projection from vanishing point at horizon center
+  const vx=W/2, vy=horizon;
+  ctx.strokeStyle='rgba(200,168,75,0.06)'; ctx.lineWidth=1;
+  // horizontal rows
+  const tRows=10;
+  for(let r=1;r<=tRows;r++){
+    const t=r/tRows;
+    const y=horizon + (H-horizon)*t;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+  // vertical rays from vanishing point
+  ctx.strokeStyle='rgba(200,168,75,0.05)';
+  const vRays=14;
+  for(let r=0;r<=vRays;r++){
+    const bx=(r/vRays)*W;
+    ctx.beginPath(); ctx.moveTo(vx,vy); ctx.lineTo(bx,H); ctx.stroke();
+  }
+
+  // floor meander strip
+  const fmY = horizon+1;
+  ctx.fillStyle='rgba(10,0,0,0.85)';
+  ctx.fillRect(0, fmY, W, mH+2);
+  ctx.strokeStyle='rgba(200,168,75,0.45)'; ctx.lineWidth=1.2;
+  for(let mx2=0;mx2<W;mx2+=mSize*4){
+    ctx.beginPath();
+    ctx.moveTo(mx2,            fmY+1);
+    ctx.lineTo(mx2,            fmY+mH-1);
+    ctx.lineTo(mx2+mSize,      fmY+mH-1);
+    ctx.lineTo(mx2+mSize,      fmY+3);
+    ctx.lineTo(mx2+mSize*2,    fmY+3);
+    ctx.lineTo(mx2+mSize*2,    fmY+mH-1);
+    ctx.lineTo(mx2+mSize*3,    fmY+mH-1);
+    ctx.lineTo(mx2+mSize*3,    fmY+1);
+    ctx.stroke();
   }
 
   // cast rays
@@ -743,6 +808,358 @@ function renderFP(){
     gg.addColorStop(0,`rgba(200,168,75,${al})`);
     gg.addColorStop(1,'rgba(200,168,75,0)');
     ctx.fillStyle=gg; ctx.fillRect(0,0,W,H);
+  }
+
+  // ── WALL-MOUNTED TORCH SCONCES (left + right sides) ──
+  drawSconce(ctx, W, H, 'left');
+  drawSconce(ctx, W, H, 'right');
+
+  // ── CEILING DECORATIONS ──
+  drawCeilingDeco(ctx, W, H);
+
+  // ── WALL ENGRAVINGS ──
+  drawWallEngravings(ctx, W, H);
+
+  // ── FLOATING DUST PARTICLES ──
+  drawDust(ctx, W, H);
+
+  // ── FLOATING CHECKPOINT ORB IN CORRIDOR ──
+  drawCheckpointOrb(ctx, W, H, cur);
+
+  // ── CROSSHAIR ──
+  const cx2=W/2, cy2=H/2;
+  ctx.strokeStyle='rgba(200,168,75,0.5)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(cx2-10,cy2); ctx.lineTo(cx2-4,cy2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx2+4,cy2);  ctx.lineTo(cx2+10,cy2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx2,cy2-10); ctx.lineTo(cx2,cy2-4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx2,cy2+4);  ctx.lineTo(cx2,cy2+10); ctx.stroke();
+  // center dot
+  ctx.beginPath(); ctx.arc(cx2,cy2,1.5,0,Math.PI*2);
+  ctx.fillStyle='rgba(200,168,75,0.6)'; ctx.fill();
+}
+
+/* ── CEILING DECORATIONS ── */
+function drawCeilingDeco(ctx, W, H) {
+  const t = Date.now() / 1000;
+  const horizon = H * 0.5;
+
+  // ── Central hanging lantern from ceiling ──
+  const lx = W / 2, lTopY = 4;
+  const chainLen = horizon * 0.38;
+  const lSway = Math.sin(t * 0.7) * 3;
+  const lbx = lx + lSway;
+
+  // chain links
+  ctx.strokeStyle = 'rgba(170,135,50,0.55)'; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 7; i++) {
+    const ly = lTopY + (chainLen / 7) * i;
+    ctx.beginPath();
+    ctx.ellipse(lbx, ly + chainLen / 14, 2.5, 4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // lantern body
+  const lbY = lTopY + chainLen;
+  const lW = 18, lH2 = 24;
+  const lFlicker = 0.85 + 0.15 * Math.sin(t * 3.1);
+
+  // lantern glow
+  const lg = ctx.createRadialGradient(lbx, lbY, 2, lbx, lbY, 60 * lFlicker);
+  lg.addColorStop(0, `rgba(255,140,20,${0.22 * lFlicker})`);
+  lg.addColorStop(0.5, `rgba(200,60,0,${0.1 * lFlicker})`);
+  lg.addColorStop(1, 'rgba(150,20,0,0)');
+  ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lbx, lbY, 60 * lFlicker, 0, Math.PI * 2); ctx.fill();
+
+  // lantern cage
+  ctx.strokeStyle = `rgba(160,125,40,${0.7 * lFlicker})`; ctx.lineWidth = 1.3;
+  ctx.strokeRect(lbx - lW / 2, lbY - lH2 / 2, lW, lH2);
+  // cage cross bars
+  ctx.beginPath(); ctx.moveTo(lbx - lW / 2, lbY); ctx.lineTo(lbx + lW / 2, lbY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lbx, lbY - lH2 / 2); ctx.lineTo(lbx, lbY + lH2 / 2); ctx.stroke();
+  // cage diagonals
+  ctx.strokeStyle = `rgba(160,125,40,${0.4 * lFlicker})`;
+  ctx.beginPath(); ctx.moveTo(lbx - lW/2, lbY - lH2/2); ctx.lineTo(lbx + lW/2, lbY + lH2/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lbx + lW/2, lbY - lH2/2); ctx.lineTo(lbx - lW/2, lbY + lH2/2); ctx.stroke();
+  // flame inside
+  ctx.fillStyle = `rgba(255,210,80,${0.9 * lFlicker})`;
+  ctx.beginPath();
+  ctx.moveTo(lbx, lbY - lH2 * 0.28 * lFlicker);
+  ctx.quadraticCurveTo(lbx + 3, lbY - 2, lbx + 2.5, lbY + 2);
+  ctx.quadraticCurveTo(lbx, lbY - 1, lbx - 2.5, lbY + 2);
+  ctx.quadraticCurveTo(lbx - 3, lbY - 2, lbx, lbY - lH2 * 0.28 * lFlicker);
+  ctx.fill();
+  // cap top/bottom
+  ctx.fillStyle = `rgba(140,110,35,${0.8})`;
+  ctx.fillRect(lbx - lW / 2 - 2, lbY - lH2 / 2 - 3, lW + 4, 4);
+  ctx.fillRect(lbx - lW / 2 - 2, lbY + lH2 / 2 - 1, lW + 4, 4);
+
+  // ── Corner ceiling cobwebs ──
+  drawCobweb(ctx, 0, 0, 'tl', W, H);
+  drawCobweb(ctx, W, 0, 'tr', W, H);
+
+  // ── Ceiling rune / Greek meander medallion centered ──
+  const mx2 = W * 0.5, my2 = horizon * 0.15;
+  const mr = Math.min(W, H) * 0.055;
+  const rPulse = 0.6 + 0.4 * Math.sin(t * 1.3);
+  ctx.save();
+  ctx.translate(mx2, my2);
+  ctx.rotate(t * 0.15);
+  ctx.strokeStyle = `rgba(200,168,75,${0.18 * rPulse})`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, 0, mr, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, mr * 0.65, 0, Math.PI * 2); ctx.stroke();
+  // 8 spokes
+  for (let s = 0; s < 8; s++) {
+    const a = (s / 8) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * mr * 0.65, Math.sin(a) * mr * 0.65);
+    ctx.lineTo(Math.cos(a) * mr, Math.sin(a) * mr); ctx.stroke();
+  }
+  // center cross
+  ctx.beginPath(); ctx.moveTo(-mr * 0.3, 0); ctx.lineTo(mr * 0.3, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -mr * 0.3); ctx.lineTo(0, mr * 0.3); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCobweb(ctx, cx, cy, corner, W, H) {
+  const horizon = H * 0.5;
+  const size = Math.min(W, H) * 0.14;
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (corner === 'tr') ctx.scale(-1, 1);
+
+  ctx.strokeStyle = 'rgba(200,168,75,0.1)'; ctx.lineWidth = 0.7;
+  // radial threads
+  const threads = 5;
+  for (let i = 0; i < threads; i++) {
+    const a = (i / (threads - 1)) * (Math.PI / 2);
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * size, Math.sin(a) * size); ctx.stroke();
+  }
+  // concentric arcs
+  const rings = 4;
+  for (let r = 1; r <= rings; r++) {
+    const rd = (r / rings) * size;
+    ctx.beginPath();
+    ctx.arc(0, 0, rd, 0, Math.PI / 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ── WALL ENGRAVINGS ── */
+function drawWallEngravings(ctx, W, H) {
+  const t = Date.now() / 1000;
+  const horizon = H * 0.5;
+
+  // Left wall panel — bull head petroglyph
+  const lx = W * 0.065, ly = horizon;
+  const es = Math.min(W, H) * 0.09;
+  const ep = 0.25 + 0.12 * Math.sin(t * 0.9);
+  ctx.save();
+  ctx.translate(lx, ly);
+  ctx.strokeStyle = `rgba(200,168,75,${ep})`; ctx.lineWidth = 1.1;
+  ctx.fillStyle = `rgba(200,168,75,${ep * 0.15})`;
+  // head oval
+  ctx.beginPath(); ctx.ellipse(0, 0, es * 0.5, es * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // horns
+  ctx.beginPath();
+  ctx.moveTo(-es * 0.45, -es * 0.35);
+  ctx.quadraticCurveTo(-es * 0.75, -es * 0.8, -es * 0.55, -es * 1.0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(es * 0.45, -es * 0.35);
+  ctx.quadraticCurveTo(es * 0.75, -es * 0.8, es * 0.55, -es * 1.0);
+  ctx.stroke();
+  // eyes
+  ctx.beginPath(); ctx.arc(-es * 0.18, -es * 0.08, es * 0.08, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(es * 0.18, -es * 0.08, es * 0.08, 0, Math.PI * 2); ctx.fill();
+  // nose ring
+  ctx.beginPath(); ctx.arc(0, es * 0.22, es * 0.12, 0, Math.PI * 2); ctx.stroke();
+  // panel border
+  ctx.strokeStyle = `rgba(200,168,75,${ep * 0.5})`;
+  ctx.strokeRect(-es * 0.75, -es * 1.2, es * 1.5, es * 2.1);
+  // decorative dots at corners of border
+  [[-es*.75,-es*1.2],[es*.75,-es*1.2],[-es*.75,es*.9],[es*.75,es*.9]].forEach(p=>{
+    ctx.beginPath(); ctx.arc(p[0],p[1],2.5,0,Math.PI*2);
+    ctx.fillStyle=`rgba(200,168,75,${ep*0.7})`; ctx.fill();
+  });
+  ctx.restore();
+
+  // Right wall panel — laurel wreath / victory symbol
+  const rx = W * 0.935, ry = horizon;
+  ctx.save();
+  ctx.translate(rx, ry);
+  ctx.strokeStyle = `rgba(200,168,75,${ep})`; ctx.lineWidth = 1.1;
+  // outer circle
+  ctx.beginPath(); ctx.arc(0, 0, es * 0.72, 0, Math.PI * 2); ctx.stroke();
+  // inner circle
+  ctx.beginPath(); ctx.arc(0, 0, es * 0.42, 0, Math.PI * 2); ctx.stroke();
+  // team number 1369
+  ctx.fillStyle = `rgba(200,168,75,${ep * 0.9})`;
+  ctx.font = `bold ${Math.round(es * 0.38)}px 'Bebas Neue',sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('1369', 0, -es * 0.05);
+  ctx.font = `${Math.round(es * 0.18)}px 'Bebas Neue',sans-serif`;
+  ctx.fillStyle = `rgba(200,168,75,${ep * 0.6})`;
+  ctx.fillText('MINOTAUR', 0, es * 0.26);
+  // 8 dots on outer ring
+  for (let d = 0; d < 8; d++) {
+    const a = (d / 8) * Math.PI * 2;
+    ctx.beginPath(); ctx.arc(Math.cos(a)*es*0.72, Math.sin(a)*es*0.72, 2.2, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(200,168,75,${ep * 0.6})`; ctx.fill();
+  }
+  // panel border
+  ctx.strokeStyle = `rgba(200,168,75,${ep * 0.4})`;
+  ctx.strokeRect(-es * 0.9, -es * 1.05, es * 1.8, es * 2.1);
+  ctx.restore();
+
+  // ── Floor rune strip near base of walls ──
+  const runeY = horizon + (H - horizon) * 0.08;
+  // left rune row
+  drawRuneRow(ctx, W * 0.02, runeY, W * 0.12, ep * 0.6);
+  // right rune row
+  drawRuneRow(ctx, W * 0.88, runeY, W * 0.12, ep * 0.6);
+}
+
+function drawRuneRow(ctx, startX, y, totalW, alpha) {
+  const runes = ['Ψ','Φ','Ω','Λ','Σ','Δ'];
+  const count = 4;
+  const spacing = totalW / count;
+  ctx.font = `${Math.round(spacing * 0.55)}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = `rgba(200,168,75,${alpha * 0.7})`;
+  for (let i = 0; i < count; i++) {
+    ctx.fillText(runes[i % runes.length], startX + spacing * i + spacing / 2, y);
+  }
+}
+
+/* ── FLOATING DUST ── */
+const DUST = Array.from({length: 28}, (_, i) => ({
+  x: Math.random(), y: Math.random(),
+  vx: (Math.random() - 0.5) * 0.00015,
+  vy: -Math.random() * 0.0002 - 0.00005,
+  r: 0.5 + Math.random() * 1.2,
+  phase: Math.random() * Math.PI * 2,
+  speed: 0.5 + Math.random() * 1.5
+}));
+
+function drawDust(ctx, W, H) {
+  const t = Date.now() / 1000;
+  const horizon = H * 0.5;
+  DUST.forEach(d => {
+    d.x += d.vx + Math.sin(t * d.speed + d.phase) * 0.0001;
+    d.y += d.vy;
+    if (d.y < -0.02) { d.y = 1.02; d.x = Math.random(); }
+    if (d.x < 0) d.x = 1; if (d.x > 1) d.x = 0;
+    const px2 = d.x * W, py2 = d.y * H;
+    // only draw dust in ceiling/floor regions, not through walls
+    if (py2 > horizon - 5 && py2 < horizon + 5) return;
+    const pulse = 0.3 + 0.7 * Math.abs(Math.sin(t * d.speed * 0.5 + d.phase));
+    // fade near horizon
+    const distFromHorizon = Math.abs(py2 - horizon);
+    const fadeAlpha = Math.min(1, distFromHorizon / (H * 0.06));
+    ctx.beginPath();
+    ctx.arc(px2, py2, d.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200,168,75,${pulse * 0.25 * fadeAlpha})`;
+    ctx.fill();
+  });
+}
+
+/* ── WALL SCONCE ── */
+let _tp=0;
+function drawSconce(ctx,W,H,side){
+  const t=Date.now()/200;
+  const fl=0.82+0.18*Math.sin(t); const fl2=0.88+0.12*Math.cos(t*1.6);
+  const horizon=H*0.5;
+  const sx=side==='left'?W*0.08:W*0.92;
+  const sy=horizon-6;
+  // bracket
+  ctx.strokeStyle=`rgba(170,140,55,${0.65*fl})`; ctx.lineWidth=2;
+  const armX=side==='left'?sx+7:sx-7;
+  ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx,sy-12); ctx.lineTo(armX,sy-12); ctx.stroke();
+  // torch body
+  ctx.fillStyle=`rgba(110,55,18,${0.95*fl})`;
+  ctx.fillRect(armX-2.5,sy-12,5,9);
+  ctx.strokeStyle=`rgba(70,35,8,${0.7})`; ctx.lineWidth=0.7;
+  for(let ly=2;ly<9;ly+=3){ctx.beginPath();ctx.moveTo(armX-2.5,sy-12+ly);ctx.lineTo(armX+2.5,sy-12+ly);ctx.stroke();}
+  // outer bloom
+  const ty2=sy-12;
+  let g=ctx.createRadialGradient(armX,ty2-4,1,armX,ty2-4,42*fl2);
+  g.addColorStop(0,`rgba(255,150,25,${0.28*fl})`);
+  g.addColorStop(0.4,`rgba(220,70,0,${0.13*fl})`);
+  g.addColorStop(1,'rgba(160,30,0,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(armX,ty2-4,42*fl2,0,Math.PI*2); ctx.fill();
+  // inner glow
+  g=ctx.createRadialGradient(armX,ty2-4,0,armX,ty2-4,14*fl2);
+  g.addColorStop(0,`rgba(255,190,70,${0.6*fl})`); g.addColorStop(1,'rgba(255,70,0,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(armX,ty2-4,14*fl2,0,Math.PI*2); ctx.fill();
+  // flame
+  ctx.fillStyle=`rgba(255,195,70,${0.92*fl})`;
+  ctx.beginPath();
+  ctx.moveTo(armX,ty2-13*fl2);
+  ctx.quadraticCurveTo(armX+3,ty2-7,armX+2,ty2);
+  ctx.quadraticCurveTo(armX,ty2-4,armX-2,ty2);
+  ctx.quadraticCurveTo(armX-3,ty2-7,armX,ty2-13*fl2); ctx.fill();
+  ctx.fillStyle=`rgba(255,240,170,${0.85*fl})`;
+  ctx.beginPath();
+  ctx.moveTo(armX,ty2-9*fl2);
+  ctx.quadraticCurveTo(armX+1.5,ty2-5,armX+1,ty2-1);
+  ctx.quadraticCurveTo(armX,ty2-3,armX-1,ty2-1);
+  ctx.quadraticCurveTo(armX-1.5,ty2-5,armX,ty2-9*fl2); ctx.fill();
+  // floor pool
+  const py=horizon+(H-horizon)*0.06;
+  g=ctx.createRadialGradient(sx,py,2,sx,py,55*fl);
+  g.addColorStop(0,`rgba(255,110,0,${0.1*fl})`); g.addColorStop(1,'rgba(200,50,0,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,py,55*fl,0,Math.PI*2); ctx.fill();
+}
+
+/* ── CHECKPOINT ORB ── */
+function drawCheckpointOrb(ctx,W,H,idx){
+  const t=Date.now()/1000;
+  const horizon=H*0.5;
+  const cx2=W/2, orbY=horizon*0.52+Math.sin(t*1.1)*5;
+  const pulse=0.72+0.28*Math.sin(t*2.4);
+  const r=Math.min(W,H)*0.048;
+  // outer glow
+  let g=ctx.createRadialGradient(cx2,orbY,r*0.4,cx2,orbY,r*3);
+  g.addColorStop(0,`rgba(200,168,75,${0.2*pulse})`);
+  g.addColorStop(0.5,`rgba(180,120,30,${0.08*pulse})`);
+  g.addColorStop(1,'rgba(160,80,0,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx2,orbY,r*3,0,Math.PI*2); ctx.fill();
+  // body
+  g=ctx.createRadialGradient(cx2-r*0.3,orbY-r*0.3,r*0.1,cx2,orbY,r);
+  g.addColorStop(0,`rgba(255,225,130,${0.95*pulse})`);
+  g.addColorStop(0.45,`rgba(200,145,40,${0.8*pulse})`);
+  g.addColorStop(0.85,`rgba(120,55,8,${0.65*pulse})`);
+  g.addColorStop(1,`rgba(80,20,0,${0.45*pulse})`);
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx2,orbY,r,0,Math.PI*2); ctx.fill();
+  // rim highlight
+  ctx.strokeStyle=`rgba(255,230,140,${0.5*pulse})`; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(cx2,orbY,r,0,Math.PI*2); ctx.stroke();
+  // spinning rings
+  ctx.lineWidth=1;
+  ctx.save(); ctx.translate(cx2,orbY); ctx.rotate(t*0.75);
+  ctx.strokeStyle=`rgba(200,168,75,${0.45*pulse})`;
+  ctx.beginPath(); ctx.ellipse(0,0,r*1.55,r*0.42,0,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(cx2,orbY); ctx.rotate(-t*0.52+1.1);
+  ctx.strokeStyle=`rgba(200,168,75,${0.35*pulse})`;
+  ctx.beginPath(); ctx.ellipse(0,0,r*1.35,r*0.38,Math.PI/5,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  // number
+  ctx.fillStyle=`rgba(255,245,190,${0.98*pulse})`;
+  ctx.font=`bold ${Math.round(r*1.15)}px 'Bebas Neue',sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(idx+1,cx2,orbY+1);
+  // label
+  ctx.font=`${Math.round(r*0.52)}px 'Bebas Neue',sans-serif`;
+  ctx.fillStyle=`rgba(200,168,75,${0.58*pulse})`;
+  ctx.fillText('CHECKPOINT',cx2,orbY+r*1.9);
+  // sparkles
+  for(let s=0;s<6;s++){
+    const a=t*1.4+(s/6)*Math.PI*2;
+    const d=r*1.85+Math.sin(t*2.2+s)*r*0.4;
+    const spx=cx2+Math.cos(a)*d, spy=orbY+Math.sin(a)*d*0.52;
+    const sa=(0.35+0.45*Math.sin(t*3+s*1.2))*pulse;
+    ctx.beginPath(); ctx.arc(spx,spy,1.6,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,220,100,${sa})`; ctx.fill();
   }
 }
 
